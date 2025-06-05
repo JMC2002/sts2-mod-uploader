@@ -1,8 +1,5 @@
 # Slay the Spire
 
-## Reporting Issues
-After running the uploader, you should see a file called "mod-uploader.log" appear in the directory. Send this file to the devs along with any info about what you were trying to do.
-
 ## Creating a new mod
 1. Double-clicking on the ModUploader.exe file should create a new folder called `NewModWorkspace`.
 2. Rename `NewModWorkspace` to whatever you want.
@@ -17,3 +14,6 @@ After running the uploader, you should see a file called "mod-uploader.log" appe
 2. Optionally fill out the `changeNotes` field inside the `config.json` file with a description of the changes.
 3. Open a command line window inside this folder.
 4. Run `ModUploader.exe -w <workspace-folder> -i <mod-id>` to update the mod. The mod ID can be obtained from the URL of the workspace page of the mod.
+
+## Reporting Issues
+After running the uploader, you should see a file called "mod-uploader.log" appear in the directory. Send this file to the devs along with any info about what you were trying to do.
