@@ -16,9 +16,7 @@ public static class Program
             // straight to upload if it does
             if (args.Length > 0 && new DirectoryInfo(args[0]).Exists)
             {
-                Task task = UploadCommand.UploadWorkspace(new DirectoryInfo(args[0]), null);
-                task.Wait();
-                return 0;
+                return UploadCommand.UploadWorkspace(new DirectoryInfo(args[0]), null).GetAwaiter().GetResult();
             }
 
             if (args.Length == 0)
