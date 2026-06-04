@@ -276,6 +276,9 @@ public static class UploadCommand
 
         try
         {
+            // Children (dependencies) are only populated in the query results if we explicitly request them.
+            SteamUGC.SetReturnChildren(handle, true);
+
             SteamAPICall_t call = SteamUGC.SendQueryUGCRequest(handle);
             using SteamCallResult<SteamUGCQueryCompleted_t> callResult = new(call);
             SteamUGCQueryCompleted_t result = await callResult.Task;
@@ -286,27 +289,36 @@ public static class UploadCommand
                     $"Couldn't get dependencies for item {workshopItem.m_PublishedFileId}! Error: {result.m_eResult}");
                 return [];
             }
-            
-            SteamUGC.GetQueryUGCResult(handle, 0, out _);
 
-            bool success;
-            uint index = 0;
-            PublishedFileId_t[] cache = new PublishedFileId_t[4];
-            List<ulong> dependencies = [];
-
-            do
+            if (!SteamUGC.GetQueryUGCResult(handle, 0, out SteamUGCDetails_t details))
             {
-                success = SteamUGC.GetQueryUGCChildren(result.m_handle, index, cache, (uint)cache.Length);
-                foreach (PublishedFileId_t dependency in cache)
-                {
-                    if (dependency.m_PublishedFileId != 0)
-                    {
-                        dependencies.Add(dependency.m_PublishedFileId);
-                    }
-                }
+                Log.Warn($"Couldn't read query result for item {workshopItem.m_PublishedFileId}.");
+                return [];
+            }
 
-                index += (uint)cache.Length;
-            } while (success);
+            uint numChildren = details.m_unNumChildren;
+            if (numChildren == 0)
+            {
+                return [];
+            }
+
+            // GetQueryUGCChildren returns all children of the item (at result index 0) in a single call.
+            // The array must be sized to the number of children; there is no pagination for children.
+            PublishedFileId_t[] cache = new PublishedFileId_t[numChildren];
+            if (!SteamUGC.GetQueryUGCChildren(handle, 0, cache, numChildren))
+            {
+                Log.Warn($"Failed to read dependencies for item {workshopItem.m_PublishedFileId}.");
+                return [];
+            }
+
+            List<ulong> dependencies = [];
+            foreach (PublishedFileId_t dependency in cache)
+            {
+                if (dependency.m_PublishedFileId != 0)
+                {
+                    dependencies.Add(dependency.m_PublishedFileId);
+                }
+            }
 
             if (dependencies.Count > 0)
             {
