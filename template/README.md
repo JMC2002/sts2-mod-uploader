@@ -18,10 +18,10 @@ Most properties can be substituted with `null` or removed from the JSON if you w
   "title": "",                -- The title of your mod.
   "description": "",          -- The description.
   "visibility": "private",    -- The visibility status of the mod. 
-                                  Options include: "private", "friends", "friendsonly", "public".
+                                  Options include: "private", "public", "unlisted", "friends_only".
   "changeNote": "",           -- A note for describing the newest changes you've made to your users.
   "tags": [],                 -- A list of tags to search for your mod by. 
-                                 Note: the tag "tool" is reserved for mods that function as tools.
+                                 Note: the tag "Tools & APIs" is reserved for mods that function as tools or APIs.
   "dependencies": []          -- A list of mods that your mod depends on.
                                  These should be mod IDs (can be found in the workshop URL).
 
@@ -33,8 +33,3 @@ Most properties can be substituted with `null` or removed from the JSON if you w
   "maxBranch": "public"       -- Maximum branch supported by this mod.
 }
 ```
-
-
-
-
-
