@@ -5,6 +5,7 @@
 * content       -- Where you should place the mod files to be uploaded to Steam Workshop.
                    This should be at least a JSON file, and probably a PCK & DLL.
 * image.png     -- The image shown in the Steam Workshop. Replace with your own!
+                -- Must be less than 1MB.
 * README.md     -- This readme document
 
 ## `workshop.json` Properties
