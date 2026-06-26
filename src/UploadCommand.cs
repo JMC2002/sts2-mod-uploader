@@ -447,8 +447,11 @@ public static class UploadCommand
             // There's currently a maximum of 5 content descriptors.
             const int maxContentDescriptors = 5;
             EUGCContentDescriptorID[] contentDescriptors = new EUGCContentDescriptorID[maxContentDescriptors];
-            SteamUGC.GetQueryUGCContentDescriptors(handle, 0, contentDescriptors, maxContentDescriptors);
-            result.contentDescriptors.AddRange(contentDescriptors);
+            uint count = SteamUGC.GetQueryUGCContentDescriptors(handle, 0, contentDescriptors, maxContentDescriptors);
+            for (int i = 0; i < count; i++)
+            {
+                result.contentDescriptors.Add(contentDescriptors[i]);
+            }
 
             return result;
         }
