@@ -7,6 +7,15 @@ public static class UploadCommand
 {
     private static readonly AppId_t _sts2AppId = new(2868840);
 
+    private static readonly (string FileName, string[] Languages)[] _localizedDescriptionFiles =
+    [
+        ("workshop_zh.txt", ["schinese", "tchinese"]),
+        ("workshop_en.txt", ["english"]),
+        ("workshop_schinese.txt", ["schinese"]),
+        ("workshop_tchinese.txt", ["tchinese"]),
+        ("workshop_english.txt", ["english"]),
+    ];
+
     private struct AdditionalPreview
     {
         public EItemPreviewType type;
@@ -68,6 +77,8 @@ public static class UploadCommand
             Log.Error("Tried to parse workshop.json, but it returned null!");
             return 1;
         }
+
+        Dictionary<string, string> localizedDescriptions = await LoadLocalizedDescriptions(workspaceDirectory);
         
         ERemoteStoragePublishedFileVisibility? visibility = null;
 
@@ -199,6 +210,7 @@ public static class UploadCommand
         Log.Info($"Uploading '{modConfig.title}' to the steam workshop with item ID {workshopItem.m_PublishedFileId}...");
 
         UGCUpdateHandle_t updateHandle = SteamUGC.StartItemUpdate(_sts2AppId, workshopItem);
+        string? primaryDescription = localizedDescriptions.GetValueOrDefault("english") ?? modConfig.description;
 
         if (modConfig.title != null)
         {
@@ -208,9 +220,9 @@ public static class UploadCommand
             }
         }
 
-        if (modConfig.description != null)
+        if (primaryDescription != null)
         {
-            if (!SteamUGC.SetItemDescription(updateHandle, modConfig.description))
+            if (!SteamUGC.SetItemDescription(updateHandle, primaryDescription))
             {
                 Log.Warn("Failed to set description!");
             }
@@ -276,31 +288,17 @@ public static class UploadCommand
 
         UpdatePreviews(updateHandle, workspaceDirectory, existingDetails.Value);
 
-        SteamAPICall_t updateItemCall = SteamUGC.SubmitItemUpdate(updateHandle, modConfig.changeNote ?? "");
-        using SteamCallResult<SubmitItemUpdateResult_t> updateItemCallResult = new(updateItemCall);
-
-        while (!updateItemCallResult.Task.IsCompleted)
-        {
-            await Task.Delay(500);
-            
-            EItemUpdateStatus status =
-                SteamUGC.GetItemUpdateProgress(updateHandle, out ulong bytesProcessed, out ulong bytesTotal);
-
-            if (bytesTotal > 0)
-            {
-                Log.Info($"Status: {status}, bytes processed: {bytesProcessed}/{bytesTotal} ({(float)bytesProcessed/bytesTotal:P2})");
-            }
-            else
-            {
-                Log.Info($"Status: {status}");
-            }
-        }
-        
-        SubmitItemUpdateResult_t updateItemResult = await updateItemCallResult.Task;
+        SubmitItemUpdateResult_t updateItemResult = await SubmitUpdate(updateHandle, modConfig.changeNote ?? "");
 
         if (updateItemResult.m_eResult != EResult.k_EResultOK)
         {
             Log.Error($"Error occurred while uploading to the workshop! Result: {updateItemResult.m_eResult}");
+            return 1;
+        }
+
+        localizedDescriptions.Remove("english");
+        if (!await UpdateLocalizedDescriptions(workshopItem, modConfig.title, localizedDescriptions))
+        {
             return 1;
         }
         
@@ -328,6 +326,97 @@ public static class UploadCommand
         }
         
         return 0;
+    }
+
+    private static async Task<Dictionary<string, string>> LoadLocalizedDescriptions(DirectoryInfo workspaceDirectory)
+    {
+        Dictionary<string, string> descriptions = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach ((string fileName, string[] languages) in _localizedDescriptionFiles)
+        {
+            FileInfo fileInfo = new(Path.Combine(workspaceDirectory.FullName, fileName));
+            if (!fileInfo.Exists) continue;
+
+            string description = (await File.ReadAllTextAsync(fileInfo.FullName)).Trim();
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                Log.Warn($"Ignoring empty localized description file: {fileInfo.Name}");
+                continue;
+            }
+
+            foreach (string language in languages)
+            {
+                descriptions[language] = description;
+            }
+
+            Log.Info($"Loaded localized description file '{fileInfo.Name}' for {string.Join(", ", languages)}.");
+        }
+
+        return descriptions;
+    }
+
+    private static async Task<bool> UpdateLocalizedDescriptions(PublishedFileId_t workshopItem, string? title, Dictionary<string, string> localizedDescriptions)
+    {
+        if (localizedDescriptions.Count == 0)
+        {
+            Log.Info("No localized description updates were requested.");
+            return true;
+        }
+
+        foreach (KeyValuePair<string, string> pair in localizedDescriptions)
+        {
+            Log.Info($"Updating localized workshop metadata for language '{pair.Key}'...");
+            UGCUpdateHandle_t localizedHandle = SteamUGC.StartItemUpdate(_sts2AppId, workshopItem);
+
+            if (!SteamUGC.SetItemUpdateLanguage(localizedHandle, pair.Key))
+            {
+                Log.Warn($"Failed to set update language to '{pair.Key}'.");
+            }
+
+            if (title != null && !SteamUGC.SetItemTitle(localizedHandle, title))
+            {
+                Log.Warn($"Failed to set localized title for '{pair.Key}'.");
+            }
+
+            if (!SteamUGC.SetItemDescription(localizedHandle, pair.Value))
+            {
+                Log.Warn($"Failed to set localized description for '{pair.Key}'.");
+            }
+
+            SubmitItemUpdateResult_t updateResult = await SubmitUpdate(localizedHandle, "");
+            if (updateResult.m_eResult != EResult.k_EResultOK)
+            {
+                Log.Error($"Failed to update localized metadata for '{pair.Key}'. Result: {updateResult.m_eResult}");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async Task<SubmitItemUpdateResult_t> SubmitUpdate(UGCUpdateHandle_t updateHandle, string changeNote)
+    {
+        SteamAPICall_t updateItemCall = SteamUGC.SubmitItemUpdate(updateHandle, changeNote);
+        using SteamCallResult<SubmitItemUpdateResult_t> updateItemCallResult = new(updateItemCall);
+
+        while (!updateItemCallResult.Task.IsCompleted)
+        {
+            await Task.Delay(500);
+
+            EItemUpdateStatus status =
+                SteamUGC.GetItemUpdateProgress(updateHandle, out ulong bytesProcessed, out ulong bytesTotal);
+
+            if (bytesTotal > 0)
+            {
+                Log.Info($"Status: {status}, bytes processed: {bytesProcessed}/{bytesTotal} ({(float)bytesProcessed / bytesTotal:P2})");
+            }
+            else
+            {
+                Log.Info($"Status: {status}");
+            }
+        }
+
+        return await updateItemCallResult.Task;
     }
 
     private static async Task<bool> UpdateDependencies(PublishedFileId_t workshopItem, List<ulong> existingDependencies, List<ulong> newDependencies)

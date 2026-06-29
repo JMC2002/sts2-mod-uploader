@@ -15,6 +15,16 @@
 * image.png     -- The image shown in the Steam Workshop. Required. Replace with your own!
                    Must be less than 1MB.
 
+* workshop_en.txt -- English workshop description. Optional. If present, it is submitted
+                    as the English description.
+
+* workshop_zh.txt -- Chinese workshop description. Optional. If present, it is submitted
+                    for both Simplified Chinese and Traditional Chinese.
+
+* workshop_schinese.txt / workshop_tchinese.txt / workshop_english.txt
+                  -- Optional language-specific overrides. These take precedence over
+                     workshop_zh.txt / workshop_en.txt for their language.
+
 * README.md     -- This readme document
 
 ## `workshop.json` Properties
@@ -27,6 +37,8 @@ Most properties can be substituted with `null` or removed from the JSON if you w
 {
   "title": "",                -- The title of your mod.
   "description": "",          -- The description.
+                                 This is used as the default English description when
+                                 workshop_en.txt is not present.
   "visibility": "private",    -- The visibility status of the mod. 
                                   Options include: "private", "public", "unlisted", "friends_only".
   "changeNote": "",           -- A note for describing the newest changes you've made to your users.
