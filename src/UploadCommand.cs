@@ -207,10 +207,16 @@ public static class UploadCommand
             return 1;
         }
         
+        string? primaryDescription = localizedDescriptions.GetValueOrDefault("english") ?? modConfig.description;
+        localizedDescriptions.Remove("english");
+        if (!await UpdateLocalizedDescriptions(workshopItem, modConfig.title, localizedDescriptions))
+        {
+            return 1;
+        }
+
         Log.Info($"Uploading '{modConfig.title}' to the steam workshop with item ID {workshopItem.m_PublishedFileId}...");
 
         UGCUpdateHandle_t updateHandle = SteamUGC.StartItemUpdate(_sts2AppId, workshopItem);
-        string? primaryDescription = localizedDescriptions.GetValueOrDefault("english") ?? modConfig.description;
 
         if (modConfig.title != null)
         {
@@ -296,12 +302,6 @@ public static class UploadCommand
             return 1;
         }
 
-        localizedDescriptions.Remove("english");
-        if (!await UpdateLocalizedDescriptions(workshopItem, modConfig.title, localizedDescriptions))
-        {
-            return 1;
-        }
-        
         if (!await UpdateDependencies(workshopItem, existingDetails.Value.dependencies, modConfig.dependencies ?? []))
         {
             return 1;
