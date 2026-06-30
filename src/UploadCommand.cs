@@ -209,10 +209,6 @@ public static class UploadCommand
         
         string? primaryDescription = localizedDescriptions.GetValueOrDefault("english") ?? modConfig.description;
         localizedDescriptions.Remove("english");
-        if (!await UpdateLocalizedDescriptions(workshopItem, modConfig.title, localizedDescriptions))
-        {
-            return 1;
-        }
 
         Log.Info($"Uploading '{modConfig.title}' to the steam workshop with item ID {workshopItem.m_PublishedFileId}...");
 
@@ -303,6 +299,12 @@ public static class UploadCommand
         }
 
         if (!await UpdateDependencies(workshopItem, existingDetails.Value.dependencies, modConfig.dependencies ?? []))
+        {
+            return 1;
+        }
+
+        Log.Info("Updating localized workshop metadata after the main content upload...");
+        if (!await UpdateLocalizedDescriptions(workshopItem, modConfig.title, localizedDescriptions))
         {
             return 1;
         }
