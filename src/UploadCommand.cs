@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text;
 using Steamworks;
 
 namespace ModUploader;
@@ -211,6 +212,7 @@ public static class UploadCommand
         localizedDescriptions.Remove("english");
 
         Log.Info($"Uploading '{modConfig.title}' to the steam workshop with item ID {workshopItem.m_PublishedFileId}...");
+        LogUploadInputs(workspaceDirectory, contentDirectoryInfo, imageFileInfo, configJsonInfo, modConfig.changeNote);
 
         UGCUpdateHandle_t updateHandle = SteamUGC.StartItemUpdate(_sts2AppId, workshopItem);
 
@@ -414,11 +416,62 @@ public static class UploadCommand
             }
             else
             {
-                Log.Info($"Status: {status}");
+                Log.Info($"Status: {status}, bytes processed: {bytesProcessed}/{bytesTotal}");
             }
         }
 
         return await updateItemCallResult.Task;
+    }
+
+    private static void LogUploadInputs(
+        DirectoryInfo workspaceDirectory,
+        DirectoryInfo contentDirectoryInfo,
+        FileInfo imageFileInfo,
+        FileInfo configJsonInfo,
+        string? changeNote)
+    {
+        Log.Info($"Workspace directory: {workspaceDirectory.FullName}");
+        Log.Info($"Workshop config: {configJsonInfo.FullName} ({configJsonInfo.Length} bytes)");
+        Log.Info($"Preview image: {imageFileInfo.FullName} ({imageFileInfo.Length} bytes)");
+
+        const long previewSizeWarningBytes = 1024 * 1024;
+        if (imageFileInfo.Length > previewSizeWarningBytes)
+        {
+            Log.Warn($"Preview image is larger than {previewSizeWarningBytes} bytes.");
+        }
+
+        string safeChangeNote = changeNote ?? "";
+        int changeNoteBytes = Encoding.UTF8.GetByteCount(safeChangeNote);
+        Log.Info($"Change note length: {safeChangeNote.Length} chars, {changeNoteBytes} UTF-8 bytes");
+
+        FileInfo[] contentFiles = contentDirectoryInfo
+            .GetFiles("*", SearchOption.AllDirectories)
+            .OrderBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        long totalBytes = contentFiles.Sum(file => file.Length);
+        Log.Info($"Content directory: {contentDirectoryInfo.FullName}");
+        Log.Info($"Content files: {contentFiles.Length}, total size: {totalBytes} bytes");
+
+        if (contentFiles.Length == 0)
+        {
+            Log.Warn("Content directory is empty.");
+        }
+
+        foreach (FileInfo file in contentFiles)
+        {
+            string relativePath = Path.GetRelativePath(contentDirectoryInfo.FullName, file.FullName);
+            Log.Info($"Content file: {relativePath} ({file.Length} bytes)");
+
+            try
+            {
+                using FileStream stream = file.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Could not open content file for reading: {relativePath}. {ex.GetType().Name}: {ex.Message}");
+            }
+        }
     }
 
     private static async Task<bool> UpdateDependencies(PublishedFileId_t workshopItem, List<ulong> existingDependencies, List<ulong> newDependencies)
